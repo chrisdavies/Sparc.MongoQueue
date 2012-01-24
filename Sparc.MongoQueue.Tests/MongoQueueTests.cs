@@ -58,7 +58,7 @@
             item.ShouldNotBeNull();
             q1.Pop().ShouldBeNull();
 
-            collection.Update(Query.NE("name", BsonNull.Value), Update.Set("updated", DateTime.UtcNow.AddMinutes(-31)));
+            collection.Update(Query.Exists("Machine", true), Update.Set("Expires", DateTime.UtcNow.AddMinutes(-31)));
             q1.Pop().ShouldNotBeNull();
         }
         
@@ -67,30 +67,10 @@
         {
             var q = new MongoQueue(db, "Q1");
             q.Push(new BsonDocument());
-            q.Pop("Hello World");
+            q.Pop();
             var doc = collection.FindOneAs<BsonDocument>();
-            doc["name"].AsString.ShouldEqual("Q1");
-            doc["machine"].AsString.ShouldEqual(Environment.MachineName);
-            doc["message"].AsString.ShouldEqual("Hello World");
-        }
-                
-        [TestMethod]
-        public void Update_refreshes_timestamp_and_message()
-        {
-            var q = new MongoQueue(db, "Q1");
-            q.Push(new BsonDocument());
-            var item = q.Pop();
-
-            var doc = collection.FindOneAs<BsonDocument>();
-            doc["updated"] = DateTime.UtcNow.AddHours(-1);
-            collection.Save(doc);
-            
-            var now = DateTime.UtcNow;
-            item.Update("Did stuff");
-
-            doc = collection.FindOneAs<BsonDocument>();
-            doc["updated"].AsDateTime.ShouldBeInRange(now.AddSeconds(-2), now.AddSeconds(2));
-            doc["message"].AsString.ShouldEqual("Did stuff");
+            doc["Machine"].AsString.ShouldEqual(Environment.MachineName);
+            doc["Expires"].AsDateTime.ShouldBeInRange(DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30));
         }
 
         [TestMethod]
@@ -99,6 +79,7 @@
             var q = new MongoQueue(db, "Q1");
             q.Push(new BsonDocument());
             var item = q.Pop();
+            collection.Count().ShouldEqual(1);
             item.Close();
             collection.Count().ShouldEqual(0);
         }

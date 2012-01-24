@@ -11,36 +11,23 @@
     /// </summary>
     public class MongoQueueItem : BsonDocument
     {
-        private MongoCollection collection;
-        private QueryComplete me;
+        private QueryComplete mongoQuery;
 
         internal MongoQueueItem(MongoCollection collection, BsonDocument item)
-            : base(item["data"] as IEnumerable<BsonElement>)
+            : base(item["Data"] as IEnumerable<BsonElement>)
         {
-            me = Query.EQ("_id", item["_id"]);
-            this.collection = collection;
+            mongoQuery = Query.EQ("_id", item["_id"]);
+            this.Collection = collection;
         }
 
-        /// <summary>
-        /// Updates the current queued item, posting the specified message
-        /// and updating the item's timestamp.
-        /// </summary>
-        /// <param name="message">The message to post.</param>
-        public void Update(string message)
-        {
-            var update = MongoDB.Driver.Builders.Update
-                    .Set("message", message)
-                    .Set("updated", DateTime.UtcNow);
-
-            collection.Update(me, update);
-        }
+        protected MongoCollection Collection { get; set; }
 
         /// <summary>
         /// Closes the current item and removes it completely from the db.
         /// </summary>
-        public void Close()
+        public virtual void Close()
         {
-            collection.Remove(me);
+            Collection.Remove(mongoQuery);
         }
     }
 }
