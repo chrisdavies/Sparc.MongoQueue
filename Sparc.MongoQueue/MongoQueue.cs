@@ -64,11 +64,12 @@
                 throw new ArgumentNullException("data");
             }
 
-            db.GetCollection(CollectionName).Save(new BsonDocument
+            data["MongoQueue"] = new BsonDocument
             {
-                { "QueueName", this.QueueName },
-                { "Data", data }
-            });
+                { "QueueName", this.QueueName }
+            };
+
+            db.GetCollection(CollectionName).Save(data);
         }
 
         /// <summary>
@@ -79,14 +80,19 @@
         {
             var collection = db.GetCollection(CollectionName);
             var query = Query.And(
-                Query.EQ("QueueName", this.QueueName),
-                Query.Or(Query.Exists("Machine", false), Query.LT("Expires", DateTime.UtcNow)));
-            var item = collection.FindAndModify(
+                Query.EQ("MongoQueue.QueueName", this.QueueName),
+                Query.Or(Query.Exists("MongoQueue.Machine", false), Query.LT("MongoQueue.Expires", DateTime.UtcNow)));
+            var result = collection.FindAndModify(
                 query,
                 SortBy.Null,
-                Update.Set("Machine", Environment.MachineName).Set("Expires", DateTime.UtcNow.Add(MaxProcessingTime))).ModifiedDocument;
+                Update.Set("MongoQueue.Machine", Environment.MachineName).Set("MongoQueue.Expires", DateTime.UtcNow.Add(MaxProcessingTime))).GetModifiedDocumentAs<MongoQueueItem>();
 
-            return item == null ? null : new MongoQueueItem(collection, item);
+            if (result != null)
+            {
+                result.Collection = collection;
+            }
+
+            return result;
         }
     }
 }

@@ -1,14 +1,11 @@
 ﻿namespace Sparc.MongoQueue.Tests
 {
     using System;
-    using System.Text;
-    using System.Collections.Generic;
-    using System.Linq;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using MongoDB.Driver;
     using MongoDB.Bson;
-    using Should;
+    using MongoDB.Driver;
     using MongoDB.Driver.Builders;
+    using Should;
 
     /// <summary>
     /// These require a local instance of MongoDB.  This will create a database
@@ -58,7 +55,7 @@
             item.ShouldNotBeNull();
             q1.Pop().ShouldBeNull();
 
-            collection.Update(Query.Exists("Machine", true), Update.Set("Expires", DateTime.UtcNow.AddMinutes(-31)));
+            collection.Update(Query.Exists("MongoQueue.Machine", true), Update.Set("MongoQueue.Expires", DateTime.UtcNow.AddMinutes(-31)));
             q1.Pop().ShouldNotBeNull();
         }
         
@@ -69,8 +66,9 @@
             q.Push(new BsonDocument());
             q.Pop();
             var doc = collection.FindOneAs<BsonDocument>();
-            doc["Machine"].AsString.ShouldEqual(Environment.MachineName);
-            doc["Expires"].AsDateTime.ShouldBeInRange(DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30));
+            var meta = doc["MongoQueue"].AsBsonDocument;
+            meta["Machine"].AsString.ShouldEqual(Environment.MachineName);
+            meta["Expires"].AsDateTime.ShouldBeInRange(DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30));
         }
 
         [TestMethod]
