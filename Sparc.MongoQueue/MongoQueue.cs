@@ -82,6 +82,7 @@
             var query = Query.And(
                 Query.EQ("MongoQueue.QueueName", this.QueueName),
                 Query.Or(Query.Exists("MongoQueue.Machine", false), Query.LT("MongoQueue.Expires", DateTime.UtcNow)));
+
             var result = collection.FindAndModify(
                 query,
                 SortBy.Null,
