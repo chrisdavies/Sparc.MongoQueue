@@ -55,7 +55,7 @@
             item.ShouldNotBeNull();
             q1.Pop().ShouldBeNull();
 
-            collection.Update(Query.Exists("MongoQueue.Machine", true), Update.Set("MongoQueue.Expires", DateTime.UtcNow.AddMinutes(-31)));
+            collection.Update(Query.Exists("MongoQueue.Machine"), Update.Set("MongoQueue.Expires", DateTime.UtcNow.AddMinutes(-31)));
             q1.Pop().ShouldNotBeNull();
         }
         
