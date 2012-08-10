@@ -1,24 +1,20 @@
 ﻿namespace Sparc.MongoQueue
 {
-    using System;
     using MongoDB.Bson;
     using MongoDB.Driver;
     using MongoDB.Driver.Builders;
+    using System;
 
-    /// <summary>
-    /// Manages a queuing mechanism using MongoDB.
-    /// </summary>
     public class MongoQueue
     {
         private MongoDatabase db;
 
-        /// <summary>
-        /// Initializes a new instance of the MongoQueue class.
-        /// </summary>
-        /// <param name="db">The mongo database to use.</param>
-        /// <param name="queueName">The name of the queue to be managed.
-        /// (e.g. "Notifications", "BatchJobs", etc)
-        /// </param>
+        public string QueueName { get; private set; }
+
+        public string CollectionName { get; set; }
+
+        public TimeSpan MaxProcessingTime { get; set; }
+
         public MongoQueue(MongoDatabase db, string queueName)
         {
             if (string.IsNullOrWhiteSpace(queueName))
@@ -33,61 +29,40 @@
 
             this.db = db;
             this.QueueName = queueName;
-            this.MaxProcessingTime = TimeSpan.FromMinutes(30);
+            this.MaxProcessingTime = TimeSpan.FromMinutes(30.0);
             this.CollectionName = "MongoQueue";
         }
 
-        /// <summary>
-        /// Gets the name of the queue being used.
-        /// </summary>
-        public string QueueName { get; private set; }
-
-        /// <summary>
-        /// Gets or sets the name of the Mongo collection to use.
-        /// </summary>
-        public string CollectionName { get; set; }
-
-        /// <summary>
-        /// Gets or sets the maximum processing time for queue items.
-        /// The default is 30 minutes.  This should be a positive value.
-        /// </summary>
-        public TimeSpan MaxProcessingTime { get; set; }
-
-        /// <summary>
-        /// Pushes an item on to the queue.
-        /// </summary>
-        /// <param name="data">The item to be pushed.</param>
-        public void Push(BsonDocument data)
+        public void Push(BsonDocument data, Schedule schedule = null)
         {
             if (data == null)
             {
                 throw new ArgumentNullException("data");
             }
 
-            data["MongoQueue"] = new BsonDocument
-            {
-                { "QueueName", this.QueueName }
-            };
+            schedule = schedule ?? new Schedule { Repeat = Repeat.None, NextRun = DateTime.UtcNow };
 
-            db.GetCollection(CollectionName).Save(data);
+            var meta = new BsonDocument();
+            meta["QueueName"] = this.QueueName;
+            meta["Schedule"] = schedule.ToBsonDocument();
+            data["MongoQueue"] = meta;
+            this.db.GetCollection(this.CollectionName).Save(data);
         }
 
-        /// <summary>
-        /// Pops an item off of the queue.
-        /// </summary>
-        /// <returns>The item to process.</returns>
         public MongoQueueItem Pop()
         {
-            var collection = db.GetCollection(CollectionName);
+            var collection = this.db.GetCollection(this.CollectionName);
             var query = Query.And(
                 Query.EQ("MongoQueue.QueueName", this.QueueName),
-                Query.Or(Query.NotExists("MongoQueue.Machine"), Query.LT("MongoQueue.Expires", DateTime.UtcNow)));
-
+                Query.Or(
+                    Query.NotExists("MongoQueue.Schedule"),
+                    Query.LTE("MongoQueue.Schedule.NextRun", DateTime.UtcNow)));
             var result = collection.FindAndModify(
-                query,
-                SortBy.Null,
-                Update.Set("MongoQueue.Machine", Environment.MachineName).Set("MongoQueue.Expires", DateTime.UtcNow.Add(MaxProcessingTime))).GetModifiedDocumentAs<MongoQueueItem>();
-
+                query, 
+                SortBy.Null, 
+                Update.Set("MongoQueue.Machine", Environment.MachineName).Set("MongoQueue.Schedule.NextRun", DateTime.UtcNow.Add(this.MaxProcessingTime)))
+                .GetModifiedDocumentAs<MongoQueueItem>();
+            
             if (result != null)
             {
                 result.Collection = collection;

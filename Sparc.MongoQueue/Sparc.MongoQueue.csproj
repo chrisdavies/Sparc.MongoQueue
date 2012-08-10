@@ -49,6 +49,8 @@
     <Compile Include="MongoQueue.cs" />
     <Compile Include="MongoQueueItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Repeat.cs" />
+    <Compile Include="Schedule.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -55,20 +55,20 @@
             item.ShouldNotBeNull();
             q1.Pop().ShouldBeNull();
 
-            collection.Update(Query.Exists("MongoQueue.Machine"), Update.Set("MongoQueue.Expires", DateTime.UtcNow.AddMinutes(-31)));
+            collection.Update(Query.Exists("MongoQueue.Machine"), Update.Set("MongoQueue.Schedule.NextRun", DateTime.UtcNow.AddMinutes(-31)));
             q1.Pop().ShouldNotBeNull();
         }
         
         [TestMethod]
-        public void Pop_sets_metadata()
+        public void Recurring_schedules_get_repeated()
         {
             var q = new MongoQueue(db, "Q1");
-            q.Push(new BsonDocument());
-            q.Pop();
+            q.Push(new BsonDocument(), new Schedule { Repeat = Repeat.Custom, NextRun = DateTime.UtcNow.AddMinutes(-1) });
+            q.Pop().Reschedule(DateTime.UtcNow.AddMinutes(30));
             var doc = collection.FindOneAs<BsonDocument>();
             var meta = doc["MongoQueue"].AsBsonDocument;
-            meta["Machine"].AsString.ShouldEqual(Environment.MachineName);
-            meta["Expires"].AsDateTime.ShouldBeInRange(DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30));
+            meta.Contains("Machine").ShouldEqual(false);
+            meta["Schedule"].ToBsonDocument()["NextRun"].AsDateTime.ShouldBeInRange(DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(30));
         }
 
         [TestMethod]
